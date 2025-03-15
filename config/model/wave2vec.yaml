@@ -1,0 +1,10 @@
+# @package _global_
+module:
+  _target_: emg2qwerty.wave2vec.Wave2VecCTCModule
+  pretrained_model: 'facebook/wav2vec2-base-960h'
+# 'facebook/wav2vec2-base-960h'--95M    'facebook/wav2vec2-large-960h'--317M
+
+datamodule:
+  _target_: emg2qwerty.lightning.WindowedEMGDataModule
+  window_length: 8000  # 4 sec windows for 2kHz EMG
+  padding: [200, 200]  # 900ms past context, 100ms future context

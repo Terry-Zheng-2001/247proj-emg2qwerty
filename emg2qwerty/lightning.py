@@ -93,6 +93,7 @@ class WindowedEMGDataModule(pl.LightningDataModule):
                     # Feed the entire session at once without windowing/padding
                     # at test time for more realism
                     window_length=None,
+                    # window_length=self.window_length,
                     padding=(0, 0),
                     jitter=False,
                 )
@@ -272,7 +273,7 @@ class TDSConvCTCModule(pl.LightningModule):
         )
 
 
-    
+
 class RNNCTCModule(pl.LightningModule):
     NUM_BANDS: ClassVar[int] = 2
     ELECTRODE_CHANNELS: ClassVar[int] = 16
@@ -286,6 +287,7 @@ class RNNCTCModule(pl.LightningModule):
         dropout: float,
         bidirectional: bool,
         rnn_type: str,
+        channel_num: int,
         optimizer: DictConfig,
         lr_scheduler: DictConfig,
         decoder: DictConfig,
@@ -294,12 +296,13 @@ class RNNCTCModule(pl.LightningModule):
         self.save_hyperparameters()
 
         num_features = self.NUM_BANDS * mlp_features[-1]
+        self.channel_num = channel_num
 
         # Model
         # inputs: (T, N, bands=2, electrode_channels=16, freq)
         self.model = nn.Sequential(
             # (T, N, bands=2, C=16, freq)
-            SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
+            SpectrogramNorm(channels=self.NUM_BANDS * channel_num),
             # (T, N, bands=2, mlp_features[-1])
             MultiBandRotationInvariantMLP(
                 in_features=in_features,
@@ -347,6 +350,12 @@ class RNNCTCModule(pl.LightningModule):
         input_lengths = batch["input_lengths"]
         target_lengths = batch["target_lengths"]
         N = len(input_lengths)
+
+        # randomly select channels
+        C = inputs.shape[3]
+        if C != self.channel_num:
+            selected_indices = torch.randperm(C)[:self.channel_num]
+            selected_inputs = inputs[:, :, :, selected_indices, :]
 
         emissions = self.forward(inputs)
 
@@ -421,6 +430,7 @@ class HybridCNNRNNCTCModule(pl.LightningModule):
         dropout: float,
         bidirectional: bool,
         rnn_type: str,
+        channel_num: int,
         optimizer: DictConfig,
         lr_scheduler: DictConfig,
         decoder: DictConfig,
@@ -429,17 +439,19 @@ class HybridCNNRNNCTCModule(pl.LightningModule):
         self.save_hyperparameters()
 
         num_features = self.NUM_BANDS * mlp_features[-1]
+        self.channel_num = channel_num
 
         # Model
         # inputs: (T, N, bands=2, electrode_channels=16, freq)
+        in_features = (channel_num / self.ELECTRODE_CHANNELS) * in_features
         
         # Input processing and feature extraction
         self.front_end = nn.Sequential(
             # (T, N, bands=2, C=16, freq)
-            SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
+            SpectrogramNorm(channels=self.NUM_BANDS * self.channel_num),
             # (T, N, bands=2, mlp_features[-1])
             MultiBandRotationInvariantMLP(
-                in_features=in_features,
+                in_features=int(in_features),
                 mlp_features=mlp_features,
                 num_bands=self.NUM_BANDS,
             ),
@@ -501,6 +513,11 @@ class HybridCNNRNNCTCModule(pl.LightningModule):
         input_lengths = batch["input_lengths"]
         target_lengths = batch["target_lengths"]
         N = len(input_lengths)
+
+        C = inputs.shape[3]
+        if C != self.channel_num:
+            selected_indices = torch.randperm(C)[:self.channel_num]
+            inputs = inputs[:, :, :, :self.channel_num, :]
 
         emissions = self.forward(inputs)
 

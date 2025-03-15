@@ -12,6 +12,8 @@ import numpy as np
 import torch
 import torchaudio
 
+from typing import List, Optional, Tuple
+
 
 TTransformIn = TypeVar("TTransformIn")
 TTransformOut = TypeVar("TTransformOut")
@@ -243,3 +245,87 @@ class SpecAugment:
 
         # (..., C, freq, T) -> (T, ..., C, freq)
         return x.movedim(-1, 0)
+
+@dataclass
+class ChannelSelection:
+    """Selects a subset of channels from the input tensor.
+
+    Args:
+        channels weights: weights for each channel, if None, calculate automatically
+        top_k: number of top channels to select, if None, select all channels
+        band_dim: index of bands dimension
+        channel_dim: index of channel dimension (relative to band_dim)
+    """
+    channel_weights: Optional[List[List[float]]] = None
+    top_k: Optional[int] = None
+    bands_dim: int = 1
+    channel_dim: int = 2
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.channel_weights is None:
+            # calculate channel weights
+            self.channel_weights = self._compute_channel_weights(tensor)
+
+        # make sure channel weights are tensor
+        if not isinstance(self.channel_weights, torch.Tensor):
+            weights = torch.tensor(self.channel_weights, device=tensor.device)
+        else:
+            weights = self.channel_weights.to(tensor.device)
+
+        # if top_k is assigned, select top_k channels
+        if self.top_k is not None:
+            for b in range(weights.shape[0]):
+                _, indices = torch.topk(self.channel_weights[b], min(self.top_k, len(weights[b])))
+                mask = torch.zeros_like(weights[b])
+                mask[indices] = 1
+                weights[b] = mask * weights[b]
+
+        weight_shape = [1] * len(tensor.shape)
+        weight_shape[self.bands_dim] = weights.shape[0]
+        weight_shape[self.channel_dim] = weights.shape[1]
+        weights = weights.view(weight_shape)
+
+        return tensor * weights
+
+    def _compute_channel_weights(self, tensor: torch.Tensor) -> torch.Tensor:
+        # calculate channel weights
+        bands_idx = self.bands_dim
+        channel_idx = self.channel_dim
+        num_bands = tensor.shape[bands_idx]
+        num_channels = tensor.shape[channel_idx]
+
+        weights = torch.zeros((num_bands, num_channels), device=tensor.device)
+        for b in range(num_bands):
+            for c in range(num_channels):
+                indices = [slice(None)] * len(tensor.shape)
+                indices[bands_idx] = b
+                indices[channel_idx] = c
+                channel_data = tensor[tuple(indices)]
+
+                # calculate channel weight
+                weights[b, c] = torch.var(channel_data)
+
+        # regularize weights in each band
+        for b in range(num_bands):
+            weights[b] = weights[b] / (torch.sum(weights[b]) + 1e-6)
+        return weights
+
+@dataclass
+class TemporalSubsampling:
+    """Applies temporal subsampling by selecting every `stride`-th frame.
+    This helps in reducing the sequence length while retaining key
+    temporal features. The input must be of shape (T, ...).
+
+    Args:
+        stride (int): The step size for subsampling. Must be >= 1.
+    """
+
+    stride: int
+
+    def __post_init__(self) -> None:
+        assert self.stride >= 1, "Stride must be at least 1"
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Performs subsampling on the time dimension."""
+        return tensor[::self.stride]
+

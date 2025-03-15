@@ -534,7 +534,6 @@ class WindowedEMGDataset(torch.utils.data.Dataset):
         target_lengths = torch.as_tensor(
             [len(target) for target in targets], dtype=torch.int32
         )
-
         return {
             "inputs": input_batch,
             "targets": target_batch,

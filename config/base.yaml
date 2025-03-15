@@ -1,7 +1,7 @@
 defaults:
   - user: single_user
   - transforms: log_spectrogram
-  - model: rnn_ctc
+  - model: hybrid_cnn_rnn_ctc     # tds_conv_ctc  gpt  hybrid_cnn_rnn_ctc
   - optimizer: adam
   - lr_scheduler: linear_warmup_cosine_annealing
   - decoder: ctc_greedy
@@ -11,7 +11,7 @@ defaults:
 seed: 1501
 batch_size: 16
 num_workers: 4  # Number of workers for dataloading
-train: True  # Whether to train or only run validation and test
+train: True   # Whether to train or only run validation and test
 checkpoint: null  # Optional path to checkpoint file
 monitor_metric: val/CER
 monitor_mode: min
@@ -20,7 +20,7 @@ trainer:
   accelerator: gpu
   devices: 1
   num_nodes: 1
-  max_epochs: 40
+  max_epochs: 20
   default_root_dir: ${hydra:runtime.output_dir}
 
 callbacks:
@@ -29,7 +29,7 @@ callbacks:
     dirpath: ${hydra:runtime.output_dir}/checkpoints
     monitor: ${monitor_metric}
     mode: ${monitor_mode}
-    save_last: True
+    save_last: False
     verbose: True
 
 dataset:
@@ -37,7 +37,8 @@ dataset:
 
 hydra:
   run:
-    dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: logs/test
+    # dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
     dir: ${hydra.run.dir}
     subdir: job${hydra.job.num}_${hydra.job.override_dirname}

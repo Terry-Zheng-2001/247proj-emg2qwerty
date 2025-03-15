@@ -11,7 +11,9 @@ module:
   num_layers: 3
   dropout: 0.3
   bidirectional: True
-  rnn_type: gru # choose from rnn, lstm, gru
+  rnn_type: lstm # choose from rnn, lstm, gru
+  # hyperparameters experiment
+  channel_num: 4
 
 datamodule:
   _target_: emg2qwerty.lightning.WindowedEMGDataModule

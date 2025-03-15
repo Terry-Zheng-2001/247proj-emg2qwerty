@@ -121,7 +121,7 @@ class CTCGreedyDecoder(Decoder):
     ) -> LabelData:
         assert emissions.ndim == 2  # (T, num_classes)
         assert emissions.shape[1] == self._charset.num_classes
-        assert len(emissions) == len(timestamps)
+        assert len(emissions) == len(timestamps), f"{len(emissions)}, {len(timestamps)}"
 
         for label, timestamp in zip(emissions.argmax(-1), timestamps):
             if label != self._charset.null_class and label != self.prev_label:

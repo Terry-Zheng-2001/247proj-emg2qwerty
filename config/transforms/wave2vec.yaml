@@ -3,9 +3,11 @@ to_tensor:
   _target_: emg2qwerty.transforms.ToTensor
   fields: [emg_left, emg_right]
 
-temporal_subsampling:
-  _target_: emg2qwerty.transforms.TemporalSubsampling
-  stride: 1
+
+# temporal_subsampling:
+#   _target_: emg2qwerty.transforms.TemporalSubsampling
+#   stride: 1
+
 
 band_rotation:
   _target_: emg2qwerty.transforms.ForEach  # i.i.d rotation offset for each band
@@ -17,35 +19,20 @@ temporal_jitter:
   _target_: emg2qwerty.transforms.TemporalAlignmentJitter
   max_offset: 120  # Max 60ms jitter for 2kHz EMG
 
-logspec:
-  _target_: emg2qwerty.transforms.LogSpectrogram
+frequency_avg:
+  _target_: emg2qwerty.transforms.STFTInverseTransform
   n_fft: 64
-  hop_length: 32
-
-specaug:
-  _target_: emg2qwerty.transforms.SpecAugment
-  n_time_masks: 3
-  time_mask_param: 25  # Max 200ms per time mask for 125Hz spectrogram
-  n_freq_masks: 2
-  freq_mask_param: 4
-
-channel_select:
-  _target_: emg2qwerty.transforms.ChannelSelection
-  top_k: 12
+  hop_length: 16  # Downsamples from 2kHz to 125Hz
 
 transforms:
   train:
     - ${to_tensor}
-    # - ${temporal_subsampling}
     - ${band_rotation}
     - ${temporal_jitter}
-    # - ${channel_select}
-    - ${logspec}
-    - ${specaug}
+    # - ${frequency_avg}
 
   val:
     - ${to_tensor}
-    # - ${channel_select}
-    - ${logspec}
+    # - ${frequency_avg}
 
   test: ${transforms.val}

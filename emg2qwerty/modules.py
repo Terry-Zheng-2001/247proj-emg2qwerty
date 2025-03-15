@@ -354,4 +354,3 @@ class RNNEncoder(nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         outputs, _ = self.rnn(inputs)
         return self.layer_norm(outputs)
-    
