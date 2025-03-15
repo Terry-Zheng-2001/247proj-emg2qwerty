@@ -99,12 +99,6 @@ If you are using a Slurm cluster, include "cluster=slurm" override in the argume
 ## Testing
 
 
-训练好的模型的checkpoint放在/models/下面，我们训练的模型有baseline、lstm、gru、hybrid-lstm、hybrid-gru，选择对应模型的best.ckpt，path就写完整的path就行，下面用lstm举例，注意需要在测试前修改对应的yaml文件：
-
-```shell
-python -m emg2qwerty.train checkpoint="E:\UCLA\2nd quarter\ece247\Proj\247proj\models\lstm\checkpoints\best.ckpt" train=False trainer.accelerator=cpu decoder=ctc_greedy hydra.launcher.mem_gb=64
-```
-
 Greedy decoding:
 
 ```shell
